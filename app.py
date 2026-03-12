@@ -14,7 +14,8 @@ openmeteo = openmeteo_requests.Client(
 )
 
 url = "https://api.open-meteo.com/v1/forecast"
-base_params = {
+
+temp_params = {
     "hourly": "temperature_2m",
     "timezone": "America/New_York",
     "past_days": 5,
@@ -22,45 +23,44 @@ base_params = {
     "temperature_unit": "fahrenheit",
 }
 
-def fetch_df(lat, lon, name):
-    r = openmeteo.weather_api(url, params={**base_params, "latitude": lat, "longitude": lon})[0]
+cloud_params = {
+    "hourly": "cloud_cover",
+    "timezone": "America/New_York",
+    "forecast_days": 14,
+}
+
+def fetch_df(lat, lon, name, params, variable_name):
+    r = openmeteo.weather_api(url, params={**params, "latitude": lat, "longitude": lon})[0]
     h = r.Hourly()
-    temps = h.Variables(0).ValuesAsNumpy()
+    values = h.Variables(0).ValuesAsNumpy()
     dates = pd.date_range(
         pd.to_datetime(h.Time(), unit="s"),
         pd.to_datetime(h.TimeEnd(), unit="s"),
         freq=pd.Timedelta(seconds=h.Interval()),
         inclusive="left",
     )
-    return pd.DataFrame({"dt": dates, name: temps}).set_index("dt")
+    return pd.DataFrame({"dt": dates, name: values}).set_index("dt")
 
-# --- Fetch DataFrames ---
-df_p = fetch_df(43.67, -70.28, "Portland")
-df_l = fetch_df(44.100349, -70.214775, "Lewiston")
-df_s = fetch_df(43.630131, -70.292107, "South Portland")
+# --- Temperature Data ---
+df_p = fetch_df(43.67, -70.28, "Portland", temp_params, "temperature_2m")
+df_l = fetch_df(44.100349, -70.214775, "Lewiston", temp_params, "temperature_2m")
+df_s = fetch_df(43.630131, -70.292107, "South Portland", temp_params, "temperature_2m")
 
-# --- Combine on datetime index (inner join keeps shared timestamps) ---
 df = df_p.join(df_l, how="inner").join(df_s, how="inner")
 
-# --- Sanity: only allow highlight days that have a full day's worth of data ---
 interval_seconds = int((df.index[1] - df.index[0]).total_seconds())
 expected_per_day = int(24 * 3600 / interval_seconds)
 
 counts_per_day = df.resample("D").size()
 full_days = counts_per_day[counts_per_day == expected_per_day].index
 
-# --- Daily aggregate across ALL towns + ALL hours (sum of hourly temps) ---
 daily_aggregate = df.resample("D").sum().sum(axis=1)
-
-# Restrict to full days only
 daily_aggregate_full = daily_aggregate.loc[full_days]
 
-# Pick 3 coldest and 3 warmest full days
 coldest_days = daily_aggregate_full.nsmallest(3).index.normalize()
 warmest_days = daily_aggregate_full.nlargest(3).index.normalize()
 
-# --- Plot ---
-fig = plt.figure(figsize=(16, 8))
+fig1 = plt.figure(figsize=(16, 8))
 plt.plot(df.index, df["Portland"], label="Portland")
 plt.plot(df.index, df["Lewiston"], label="Lewiston")
 plt.plot(df.index, df["South Portland"], label="South Portland")
@@ -70,13 +70,11 @@ ax.xaxis.set_major_locator(mdates.DayLocator())
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 ax.grid(True, which="major", axis="x")
 
-# Highlight coldest days
 for day in coldest_days:
     start = pd.Timestamp(day, tz=df.index.tz)
     end = start + pd.Timedelta(days=1)
     ax.axvspan(start, end, alpha=0.15, color="blue")
 
-# Highlight warmest days
 for day in warmest_days:
     start = pd.Timestamp(day, tz=df.index.tz)
     end = start + pd.Timedelta(days=1)
@@ -88,4 +86,33 @@ plt.title("Temperature Over Time (3 Coldest and 3 Warmest Full Days Highlighted)
 plt.legend()
 plt.tight_layout()
 
-st.pyplot(fig)
+st.pyplot(fig1)
+
+# --- Cloud Cover Data ---
+st.title("Daily Aggregated Cloud Cover")
+
+cloud_p = fetch_df(43.67, -70.28, "Portland", cloud_params, "cloud_cover")
+cloud_l = fetch_df(44.100349, -70.214775, "Lewiston", cloud_params, "cloud_cover")
+cloud_s = fetch_df(43.630131, -70.292107, "South Portland", cloud_params, "cloud_cover")
+
+cloud_df = cloud_p.join(cloud_l, how="inner").join(cloud_s, how="inner")
+
+daily_cloud = cloud_df.resample("D").mean()
+
+fig2 = plt.figure(figsize=(16, 8))
+plt.plot(daily_cloud.index, daily_cloud["Portland"], marker="o", label="Portland")
+plt.plot(daily_cloud.index, daily_cloud["Lewiston"], marker="o", label="Lewiston")
+plt.plot(daily_cloud.index, daily_cloud["South Portland"], marker="o", label="South Portland")
+
+ax2 = plt.gca()
+ax2.xaxis.set_major_locator(mdates.DayLocator())
+ax2.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+ax2.grid(True, which="major", axis="x")
+
+plt.xlabel("Date")
+plt.ylabel("Average Daily Cloud Cover (%)")
+plt.title("Daily Aggregated Cloud Cover (14-Day Forecast)")
+plt.legend()
+plt.tight_layout()
+
+st.pyplot(fig2)
