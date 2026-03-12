@@ -59,9 +59,9 @@ full_days = counts_per_day[counts_per_day == expected_per_day].index
 daily_aggregate = df.resample("D").sum().sum(axis=1)
 daily_aggregate_full = daily_aggregate.loc[full_days]
 
-# Pick 3 coldest and 3 warmest full days
-coldest_days = daily_aggregate_full.nsmallest(3).index.normalize()
-warmest_days = daily_aggregate_full.nlargest(3).index.normalize()
+# Pick 4 coldest and 4 warmest full days
+coldest_days = daily_aggregate_full.nsmallest(4).index.normalize()
+warmest_days = daily_aggregate_full.nlargest(4).index.normalize()
 
 # --- Temperature Plot ---
 fig1 = plt.figure(figsize=(16, 8))
@@ -86,7 +86,7 @@ for day in warmest_days:
 
 plt.xlabel("Date")
 plt.ylabel("Temperature (°F)")
-plt.title("Temperature Over Time (3 Coldest and 3 Warmest Full Days Highlighted)")
+plt.title("Temperature Over Time (4 Coldest and 4 Warmest Full Days Highlighted)")
 plt.legend()
 plt.tight_layout()
 
