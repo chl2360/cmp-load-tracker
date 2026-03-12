@@ -55,8 +55,9 @@ daily_aggregate = df.resample("D").sum().sum(axis=1)
 # Restrict to full days only
 daily_aggregate_full = daily_aggregate.loc[full_days]
 
-# Pick 3 coldest full days by lowest aggregate
+# Pick 3 coldest and 3 warmest full days
 coldest_days = daily_aggregate_full.nsmallest(3).index.normalize()
+warmest_days = daily_aggregate_full.nlargest(3).index.normalize()
 
 # --- Plot ---
 fig = plt.figure(figsize=(16, 8))
@@ -69,14 +70,21 @@ ax.xaxis.set_major_locator(mdates.DayLocator())
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 ax.grid(True, which="major", axis="x")
 
+# Highlight coldest days
 for day in coldest_days:
     start = pd.Timestamp(day, tz=df.index.tz)
     end = start + pd.Timedelta(days=1)
-    ax.axvspan(start, end, alpha=0.15)
+    ax.axvspan(start, end, alpha=0.15, color="blue")
+
+# Highlight warmest days
+for day in warmest_days:
+    start = pd.Timestamp(day, tz=df.index.tz)
+    end = start + pd.Timedelta(days=1)
+    ax.axvspan(start, end, alpha=0.15, color="red")
 
 plt.xlabel("Date")
 plt.ylabel("Temperature (°F)")
-plt.title("Temperature Over Time (3 Coldest Full Days Highlighted)")
+plt.title("Temperature Over Time (3 Coldest and 3 Warmest Full Days Highlighted)")
 plt.legend()
 plt.tight_layout()
 
