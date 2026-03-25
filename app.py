@@ -154,12 +154,12 @@ ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 ax.grid(True, which="major", axis="x")
 
 for day in coldest_days:
-    start = pd.Timestamp(day, tz=df.index.tz)
+    start = day
     end = start + pd.Timedelta(days=1)
     ax.axvspan(start, end, alpha=0.15, color="blue")
 
 for day in warmest_days:
-    start = pd.Timestamp(day, tz=df.index.tz)
+    start = day
     end = start + pd.Timedelta(days=1)
     ax.axvspan(start, end, alpha=0.15, color="red")
 
